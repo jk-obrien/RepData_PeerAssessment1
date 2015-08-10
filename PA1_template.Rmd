@@ -6,20 +6,106 @@ output:
 ---
 
 
-## Loading and preprocessing the data
+### Loading and preprocessing the data
+```{r loading, echo=TRUE}
+# Load the libraries that we'll need.
+library(ggplot2)
+library(dplyr, warn.conflicts=FALSE)
 
+# Load the data.
+act <- as.tbl(read.csv("activity.csv"))
 
+# Later we'll need some date/time information, let's add those now.
+act %>% mutate(
+            wday       = weekdays(strptime(date,"%Y-%m-%d")),
+            is_weekend = wday %in% c("Saturday","Sunday"),
+            day_type   = as.factor(ifelse(is_weekend,"weekend","weekday")),
+            pad_int    = sprintf("%04d", interval),
+            temp       = paste0(substr(pad_int,1,2), ":", substr(pad_int,3,4)),
+            time       = as.factor(temp)
+        ) %>%
+        select(-wday, -is_weekend, -pad_int, -temp) ->
+        act
+    
+```
 
-## What is mean total number of steps taken per day?
+### What is mean total number of steps taken per day?
+```{r per_day}
+# Calculate the total steps per day.
+steps_per_day <- tapply(act$steps, act$date, sum)
 
+# Draw the plot.
+hist(
+    steps_per_day,
+    main="Histogram of Total Steps per Day",
+    xlab="Steps per day"
+)
 
+# Save the mean and median for use in the report.
+daily_mean   <- sprintf("%0.2f", mean(steps_per_day, na.rm=TRUE))
+daily_median <- median(steps_per_day, na.rm=TRUE)
+```
 
-## What is the average daily activity pattern?
+* Mean total steps per day: `r daily_mean`.
+* Median total steps per day: `r daily_median`.
 
+### What is the average daily activity pattern?
 
+```{r intervals}
+# Calculate the mean steps for each interval.
+mean_int_steps <- tapply(act$steps, act$interval, mean, na.rm=TRUE)
 
-## Imputing missing values
+# Plot the average daily pattern.
+plot(
+    strptime(levels(act$time),"%H:%M"), mean_int_steps,
+    type="l",
+    xlab="Time of Day", ylab="Mean Step Count",
+    main="Average Daily Activity Pattern"
+)
 
+# Extract the time interval with the highest number of steps.
+busiest <- levels(act$time)[mean_int_steps==max(mean_int_steps)]
+```
 
+On average, across all the days, the interval with the most steps is `r busiest`.
 
-## Are there differences in activity patterns between weekdays and weekends?
+### Imputing missing values
+```{r missing_values}
+
+# Calculate the number of missing step values.
+na_count <- sum(is.na(act$steps))
+
+# Make a new data set, replacing each missing value with the mean for its 
+# interval.
+act %>% group_by(interval) %>%
+        mutate(steps=ifelse(is.na(steps), mean(steps, na.rm=TRUE), steps)) -> 
+        imputed_act
+
+imp_mean_steps <- tapply(imputed_act$steps, imputed_act$date, sum)
+hist(
+    imp_mean_steps,
+    main="Histogram of Total Steps per Day (NAs Imputed)",
+    xlab="Steps per day"
+)
+
+imp_mean   <- sprintf("%0.2f", mean(imp_mean_steps))
+imp_median <- sprintf("%0.2f", median(imp_mean_steps))
+```
+
+The number of missing values is `r na_count`.
+
+#### After Imputation of Missing Values
+* Mean Total Steps per Day: `r imp_mean`
+* Median Total Steps per Day: `r imp_median`
+
+The mean and median are now the same. These values are very similar to the mean calculated before imputing missing values (`r daily_mean`), so the affect of imputation was not much different than simply using the `na.rm` argument. 
+
+### Are there differences in activity patterns between weekdays and weekends?
+```{r weekends}
+
+x <- group_by(imputed_act,day_type,interval) %>%
+     summarise(tot_steps=sum(steps))
+g <- ggplot(x,aes(interval,tot_steps)) + facet_grid(day_type ~ .)
+g + geom_line()
+```
+
