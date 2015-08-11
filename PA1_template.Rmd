@@ -55,7 +55,10 @@ daily_median <- median(steps_per_day, na.rm=TRUE)
 ```{r intervals, echo=TRUE}
 # Calculate the mean number of steps for each interval.
 mean_int_steps <- tapply(act$steps, act$interval, mean, na.rm=TRUE)
+```
 
+This histogram shows frequencies of total steps taken per day.
+```{r histogram}
 # Plot the average daily pattern.
 plot(
     strptime(levels(act$time), "%H:%M"),
@@ -65,7 +68,9 @@ plot(
     ylab="Mean Step Count",
     main="Average Daily Activity Pattern"
 )
+```
 
+```{r busiest}
 # Extract the time interval with the highest number of steps.
 busiest <- levels(act$time)[mean_int_steps==max(mean_int_steps)]
 scount  <- round(max(mean_int_steps), 0)

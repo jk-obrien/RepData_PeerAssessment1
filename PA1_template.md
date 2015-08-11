@@ -62,7 +62,11 @@ daily_median <- median(steps_per_day, na.rm=TRUE)
 ```r
 # Calculate the mean number of steps for each interval.
 mean_int_steps <- tapply(act$steps, act$interval, mean, na.rm=TRUE)
+```
 
+This histogram shows frequencies of total steps taken per day.
+
+```r
 # Plot the average daily pattern.
 plot(
     strptime(levels(act$time), "%H:%M"),
@@ -74,7 +78,8 @@ plot(
 )
 ```
 
-![plot of chunk intervals](figure/intervals-1.png) 
+![plot of chunk histogram](figure/histogram-1.png) 
+
 
 ```r
 # Extract the time interval with the highest number of steps.
