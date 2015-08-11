@@ -1,44 +1,45 @@
 ---
 title: "Reproducible Research: Peer Assessment 1"
-output: 
+output:
   html_document:
     keep_md: true
 ---
+# Assignment 1 for Reproducible Research Module
 
-
-### Loading and preprocessing the data
+## Loading and preprocessing the data
 ```{r loading, echo=TRUE}
 # Load the libraries that we'll need.
-library(ggplot2)
-library(dplyr, warn.conflicts=FALSE)
+library("lattice")
+library("dplyr", warn.conflicts=FALSE)
 
 # Load the data.
 act <- as.tbl(read.csv("activity.csv"))
 
 # Later we'll need some date/time information, let's add those now.
-act %>% mutate(
-            wday       = weekdays(strptime(date,"%Y-%m-%d")),
-            is_weekend = wday %in% c("Saturday","Sunday"),
-            day_type   = as.factor(ifelse(is_weekend,"weekend","weekday")),
-            pad_int    = sprintf("%04d", interval),
-            temp       = paste0(substr(pad_int,1,2), ":", substr(pad_int,3,4)),
-            time       = as.factor(temp)
+# day_type is a factor with levels (weekday, weekend).
+# time is a string form of the interval time, e.g. "06:05".
+# The other variables are temporary intermediate values.
+act <- mutate(act,
+           wday       = weekdays(strptime(date,"%Y-%m-%d")),
+           is_weekend = wday %in% c("Saturday","Sunday"),
+           day_type   = as.factor(ifelse(is_weekend,"weekend","weekday")),
+           lpad_int   = sprintf("%04d", interval),
+           t_string   = paste0(substr(lpad_int,1,2), ":", substr(lpad_int,3,4)),
+           time       = as.factor(t_string)
         ) %>%
-        select(-wday, -is_weekend, -pad_int, -temp) ->
-        act
-    
+        select(-wday, -is_weekend, -lpad_int, -t_string)
 ```
 
-### What is mean total number of steps taken per day?
-```{r per_day}
+## What is mean total number of steps taken per day?
+```{r per_day, echo=TRUE}
 # Calculate the total steps per day.
 steps_per_day <- tapply(act$steps, act$date, sum)
 
-# Draw the plot.
+# Draw the histogram.
 hist(
     steps_per_day,
     main="Histogram of Total Steps per Day",
-    xlab="Steps per day"
+    xlab="Steps per Day"
 )
 
 # Save the mean and median for use in the report.
@@ -49,63 +50,86 @@ daily_median <- median(steps_per_day, na.rm=TRUE)
 * Mean total steps per day: `r daily_mean`.
 * Median total steps per day: `r daily_median`.
 
-### What is the average daily activity pattern?
+## What is the average daily activity pattern?
 
-```{r intervals}
-# Calculate the mean steps for each interval.
+```{r intervals, echo=TRUE}
+# Calculate the mean number of steps for each interval.
 mean_int_steps <- tapply(act$steps, act$interval, mean, na.rm=TRUE)
 
 # Plot the average daily pattern.
 plot(
-    strptime(levels(act$time),"%H:%M"), mean_int_steps,
+    strptime(levels(act$time), "%H:%M"),
+    mean_int_steps,
     type="l",
-    xlab="Time of Day", ylab="Mean Step Count",
+    xlab="Time of Day",
+    ylab="Mean Step Count",
     main="Average Daily Activity Pattern"
 )
 
 # Extract the time interval with the highest number of steps.
 busiest <- levels(act$time)[mean_int_steps==max(mean_int_steps)]
+scount  <- round(max(mean_int_steps), 0)
 ```
 
-On average, across all the days, the interval with the most steps is `r busiest`.
+On average, across all the days, the interval with the most steps is `r busiest` with `r scount` steps.
 
-### Imputing missing values
-```{r missing_values}
-
+## Imputing missing values
+```{r count_na, echo=TRUE}
 # Calculate the number of missing step values.
-na_count <- sum(is.na(act$steps))
-
-# Make a new data set, replacing each missing value with the mean for its 
-# interval.
-act %>% group_by(interval) %>%
-        mutate(steps=ifelse(is.na(steps), mean(steps, na.rm=TRUE), steps)) -> 
-        imputed_act
-
-imp_mean_steps <- tapply(imputed_act$steps, imputed_act$date, sum)
-hist(
-    imp_mean_steps,
-    main="Histogram of Total Steps per Day (NAs Imputed)",
-    xlab="Steps per day"
-)
-
-imp_mean   <- sprintf("%0.2f", mean(imp_mean_steps))
-imp_median <- sprintf("%0.2f", median(imp_mean_steps))
+na_count <- format(sum(is.na(act$steps)), big.mark=",")
 ```
 
 The number of missing values is `r na_count`.
 
-#### After Imputation of Missing Values
+```{r missing_values, echo=TRUE}
+# Make a new data set, replacing each missing value with the mean for its
+# interval.
+imputed_act <- group_by(act, interval) %>%
+               mutate(
+                    steps=ifelse(is.na(steps), mean(steps, na.rm=TRUE), steps)
+               )
+
+# As before, calculate the total number of steps per day.
+imp_steps_per_day <- tapply(imputed_act$steps, imputed_act$date, sum)
+hist(
+    imp_steps_per_day,
+    main="Histogram of Total Steps per Day (NAs Imputed)",
+    xlab="Steps per day"
+)
+
+# Calculate new mean and median values.
+imp_mean   <- sprintf("%0.2f", mean(imp_steps_per_day))
+imp_median <- sprintf("%0.2f", median(imp_steps_per_day))
+```
+
+
+### After Imputation of Missing Values
 * Mean Total Steps per Day: `r imp_mean`
 * Median Total Steps per Day: `r imp_median`
 
-The mean and median are now the same. These values are very similar to the mean calculated before imputing missing values (`r daily_mean`), so the affect of imputation was not much different than simply using the `na.rm` argument. 
+The mean and median are now the same. These values are the same as the mean calculated before imputing missing values (`r daily_mean`), so, other than
+making the mean and the median the same, the affect of imputation in this regard
+was no different than simply using the `na.rm` argument. By comparison of the
+two histograms, the main effect seems to have been to increase the numbers in
+each bin.
 
-### Are there differences in activity patterns between weekdays and weekends?
-```{r weekends}
+## Are there differences in activity patterns between weekdays and weekends?
+```{r weekends, echo=TRUE}
 
-x <- group_by(imputed_act,day_type,interval) %>%
+# Calculate the total number of steps per day, classified by weekday/weekend.
+# (We did most of the work for this in the first section.)
+x <- group_by(imputed_act, day_type, time) %>%
      summarise(tot_steps=sum(steps))
-g <- ggplot(x,aes(interval,tot_steps)) + facet_grid(day_type ~ .)
-g + geom_line()
+
+# Draw a panel plot showing weekday behaviour and weekend.
+xyplot(
+    tot_steps ~ time|day_type,
+    data=x,
+    type="l",
+    layout=c(1,2),
+    xlab="Time of Day",
+    ylab="Number of Steps",
+    scales=list(x=list(tick.number=5, at=seq(49,241,48)))
+)
 ```
 
