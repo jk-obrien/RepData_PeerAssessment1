@@ -11,7 +11,7 @@ output:
 
 The data are in a CSV file and require no special arguments to load and no
 processing after they are loaded. However, for convenience, we can add two new
-variables that will be useful later on.
+variables now that will be useful later on.
 
 * day_type: a factor marking each date as a "weekend" day or a "weekday".
 * time:     a character string translating each interval to a time of day.
@@ -54,7 +54,7 @@ much this varied. This is best illustrated by a histogram.
 
 ```r
 # Calculate the total steps per day.
-steps_per_day <- tapply(act$steps, act$date, sum)
+steps_per_day <- tapply(act$steps, act$date, sum, na.rm=TRUE)
 
 # Draw the histogram.
 hist(
@@ -72,8 +72,8 @@ daily_mean   <- format(mean(steps_per_day, na.rm=TRUE), nsmall=2, big.mark=",")
 daily_median <- format(median(steps_per_day, na.rm=TRUE), big.mark=",")
 ```
 
-* Mean total steps per day: 10,766.19.
-* Median total steps per day: 10,765.
+* Mean total steps per day: 9,354.23.
+* Median total steps per day: 10,395.
 
 
 ## What is the average daily activity pattern?
@@ -112,7 +112,8 @@ after     <- levels(act$time)[max_index + 1]
 scount    <- round(max(mean_int_steps), 0)
 ```
 
-On average, across all the days, the interval with the most steps is 08:35 - 08:40, with 206 steps.
+On average, across all the days, the interval with the most steps is
+08:35 - 08:40, with 206 steps.
 
 ## Imputing missing values
 
@@ -128,21 +129,24 @@ na_count <- format(sum(is.na(act$steps)), big.mark=",")
 The number of missing values is 2,304.
 
 Create a new data set, based on the one we read from the CSV file, but with
-missing values imputed by replacing them with the mean value for their interval.
+missing values imputed by replacing them with the median value for their
+interval. We'll use the median rather than the mean as this will give us a whole
+number, which makes more sense with counts of steps.
 
-Then plot ahistogram of the total steps per day as we did with the original data set.
+Then plot a histogram of the total steps per day as we did with the original
+data set.
 
 
 ```r
-# Make a new data set, replacing each missing value with the mean value for that
-# interval.
-imputed_act <- group_by(act, interval) %>%
-               mutate(
-                   steps=ifelse(is.na(steps), mean(steps, na.rm=TRUE), steps)
-               )
+# Make a new data set, replacing each missing value with the median value for
+# that interval.
+imp_act <- group_by(act, interval) %>%
+           mutate(
+               steps=ifelse(is.na(steps), median(steps, na.rm=TRUE), steps)
+           )
 
 # As before, calculate the total number of steps per day.
-imp_steps_per_day <- tapply(imputed_act$steps, imputed_act$date, sum)
+imp_steps_per_day <- tapply(imp_act$steps, imp_act$date, sum, na.rm=TRUE)
 
 # And draw a histogram.
 hist(
@@ -158,16 +162,29 @@ hist(
 # Calculate new mean and median values.
 imp_mean   <- format(mean(imp_steps_per_day),   nsmall=2, big.mark=",")
 imp_median <- format(median(imp_steps_per_day), nsmall=2, big.mark=",")
+
+# Report the sum after imputation for days that had all NAs before imputation.
+new_sum <- format(
+    sum(tapply(act$steps, act$interval, median, na.rm=TRUE)), big.mark=","
+)
 ```
 
-
 ### After Imputation of Missing Values
-* Mean Total Steps per Day: 10,766.19
-* Median Total Steps per Day: 10,766.19
+* Mean Total Steps per Day: 9,503.869
+* Median Total Steps per Day: 10,395
 
-The mean and median are now the same. These values are also the same as the mean calculated before imputing missing values (10,766.19) so, other than
-making the mean and the median the same, the effect of this method of imputation
-was no different in this regard than simply using the `na.rm` argument.
+The median value is unchanged by this method of imputation while the mean value
+is now slightly higher than the value calculated before imputation.
+
+This reflects the presence in the data set of entire days with no data for the
+steps variable. Before imputation these days would have been represented as
+"0" in the calculation of steps per day, but after imputation they are reprented
+by the sum of the median values for all the intervals in the day, thus raising
+the mean total steps per day, but leaving the median unaffected.
+
+There is no visible change in the two histograms because this value is quite
+small (1,141) and would only show up with a much higher number of bins in
+the histogram.
 
 ## Are there differences in activity patterns between weekdays and weekends?
 
@@ -180,7 +197,7 @@ weekend days.
 ```r
 # Calculate the total number of steps per day, classified by weekday/weekend.
 # (We did most of the work for this in the first section.)
-x <- group_by(imputed_act, day_type, time) %>%
+x <- group_by(imp_act, day_type, time) %>%
      summarise(tot_steps=sum(steps))
 
 # Draw a panel plot showing weekday behaviour and weekend behaviour.
@@ -197,4 +214,7 @@ xyplot(
 ```
 
 ![plot of chunk weekends](figure/weekends-1.png) 
+
+The plot shows that the number of steps is reduced overall on weekends and that,
+in particular, the high peak at c. 08:35 on weekdays is absent on weekends.
 
