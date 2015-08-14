@@ -27,11 +27,11 @@ act <- as.tbl(read.csv("activity.csv"))
 # Later we'll need some date/time information. Let's add those now.
 act <- mutate(act,
            # Figure out the day of the week for each date.
-           wday       = weekdays(strptime(date,"%Y-%m-%d")),
+           wday       = weekdays(strptime(date, "%Y-%m-%d")),
            # Use a TRUE/FALSE flag to mark each day as weekend or not.
-           is_weekend = wday %in% c("Saturday","Sunday"),
+           is_weekend = wday %in% c("Saturday", "Sunday"),
            # Convert the boolean flag to a factor.
-           day_type   = as.factor(ifelse(is_weekend,"weekend","weekday")),
+           day_type   = as.factor(ifelse(is_weekend, "weekend", "weekday")),
 
            # Left pad all the intervals to four spaces with "0"s.
            lpad_int   = sprintf("%04d", interval),
@@ -107,7 +107,7 @@ On average, across all the days, the interval with the most steps is
 ## Imputing missing values
 
 There are many missing values. We need to know how many and to consider whether
-they are having a signicant effect on our calculations.
+they are having a significant effect on our calculations.
 
 ```{r count_na, echo=TRUE}
 # Calculate the number of missing step values.
@@ -161,11 +161,12 @@ is now slightly higher than the value calculated before imputation.
 
 This reflects the presence in the data set of entire days with no data for the
 steps variable. Before imputation these days would have been represented as
-"0" in the calculation of steps per day, but after imputation they are reprented
-by the sum of the median values for all the intervals in the day, thus raising
-the mean total steps per day, but leaving the median unaffected.
+"0" in the calculation of steps per day, but after imputation they are
+represented by the sum of the median values for all the intervals in the day
+which, in this case, raises the mean total steps per day, but leaves the median
+value unaffected.
 
-There is no visible change in the two histograms because this value is quite
+There is no visible change in the new histograms because this value is quite
 small (`r new_sum`) and would only show up with a much higher number of bins in
 the histogram.
 
@@ -179,7 +180,7 @@ weekend days.
 ```{r weekends, echo=TRUE}
 
 # Calculate the total number of steps per day, classified by weekday/weekend.
-# (We did most of the work for this in the first section.)
+# (We did most of the work for this in the first section above.)
 x <- group_by(imp_act, day_type, time) %>%
      summarise(tot_steps=sum(steps))
 
@@ -198,4 +199,5 @@ xyplot(
 
 The plot shows that the number of steps is reduced overall on weekends and that,
 in particular, the high peak at c. 08:35 on weekdays is absent on weekends.
-
+This suggests that weekdays are much busier in general than weekends, but that
+weekday mornings are especially busier than weekend mornings.
